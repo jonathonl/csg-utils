@@ -43,7 +43,7 @@ then
         export REF_CACHE=/home/alignment/ref/md5/%2s/%2s/%s &&
         samtools view -uh -F 0x900 $INPUT_FILE \
         | bam-ext-mem-sort-manager squeeze --in -.ubam --keepDups --rmTags AS:i,BD:Z,BI:Z,XS:i,MC:Z,MD:Z,NM:i,MQ:i --out -.ubam \
-        | samtools sort -l 1 -@ 1 -m 4000M -n -T /home/alignment/sort_tmp - \
+        | samtools sort -l 1 -@ 1 -m 3000M -n -T /home/alignment/sort_tmp - \
         | samtools fixmate - - \
         | bam-ext-mem-sort-manager bam2fastq --in -.bam --outBase $OUT_BASE --maxRecordLimitPerFq 20000000 --sortByReadNameOnTheFly --readname --gzip;
         fastq_reads=\\\$((\\\$(zcat /home/alignment/*.fastq.gz | wc -l) / 4));
