@@ -36,7 +36,7 @@ then
 
     if [[ $EXIT_STATUS == 0 ]]
     then
-      REMOTE_COMMAND="set -euo pipefail; for INPUT_FILE in /home/alignment/*.cram; do samtools sort --reference /home/alignment/ref/hs38DH.fa --threads 1 -T /home/alignment/tmp -o \\\${INPUT_FILE%.cram}.sorted.bam \\\$INPUT_FILE; rm \\\$INPUT_FILE; done; samtools merge --threads 1 /home/alignment/merged.bam /home/alignment/*.sorted.bam; rm /home/alignment/*.sorted.bam; bam-non-primary-dedup dedup_LowMem --allReadNames --binCustom --binQualS 0:2,3:3,4:4,5:5,6:6,7:10,13:20,23:30 --log /home/alignment/dedup_lowmem.metrics --recab --in /home/alignment/merged.bam --out -.ubam --refFile /home/alignment/ref/hs38DH.fa --dbsnp /home/alignment/dbsnp/Homo_sapiens_assembly38.dbsnp138.vcf.gz | samtools view -h -C -T /home/alignment/ref/hs38DH.fa -o /home/alignment/output.cram --threads 1"
+      REMOTE_COMMAND="set -euo pipefail; for INPUT_FILE in /home/alignment/*.cram; do samtools sort --reference /home/alignment/ref/hs38DH.fa --threads 1 -T /home/alignment/tmp -o \\\${INPUT_FILE%.cram}.sorted.bam \\\$INPUT_FILE; rm \\\$INPUT_FILE; done; samtools merge --threads 1 /home/alignment/merged.bam /home/alignment/*.sorted.bam; rm /home/alignment/*.sorted.bam; bam-non-primary-dedup dedup_LowMem --allReadNames --binCustom --binQualS 0:2,3:3,4:4,5:5,6:6,7:10,13:20,23:30 --log /home/alignment/dedup_lowmem.metrics --recab --in /home/alignment/merged.bam --out -.ubam --refFile /home/alignment/ref/hs38DH.fa --dbsnp /home/alignment/dbsnp/Homo_sapiens_assembly38.dbsnp138.vcf.gz | samtools view -h -C -T /home/alignment/ref/hs38DH.fa -o /home/alignment/output.cram --threads 1; samtools flagstat /home/alignment/output.cram > /home/alignment/output.flagstat"
 
       echo "[$(date)] Creating container"
       CONTAINER_ID=$(eval $SSH_COMMAND -- sudo docker create -v "/home/alignment:/home/alignment" statgen/alignment /bin/bash -c '\""$REMOTE_COMMAND"\"')
@@ -78,7 +78,7 @@ then
         OUTPUT_FILE=$2
         echo "[$(date)] Uploading $OUTPUT_FILE"
         START_TIME=$(date +%s)
-        eval $SSH_COMMAND -- gsutil -o GSUtil:parallel_composite_upload_threshold=150M cp /home/alignment/output.cram $OUTPUT_FILE
+        eval $SSH_COMMAND -- gsutil -o GSUtil:parallel_composite_upload_threshold=150M cp /home/alignment/output.cram $OUTPUT_FILE && eval $SSH_COMMAND -- gsutil -o GSUtil:parallel_composite_upload_threshold=150M cp /home/alignment/output.flagstat $OUTPUT_FILE".flagstat"
         EXIT_STATUS=$?
         echo "[$(date)] Upload exit status: $EXIT_STATUS"
         echo "[$(date)] Elapsed time: "$(( $(date +%s) - $START_TIME ))"s"
