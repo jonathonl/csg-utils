@@ -81,7 +81,7 @@ do
             FAILED_CONTAINER_POLL_COUNT=0
             while [[ $CONTAINER_IS_RUNNING != 0 && $FAILED_CONTAINER_POLL_COUNT -lt 5 ]]
             do
-              sleep 60s
+              sleep 180s
 
               CONTAINER_STATUS_LINE=$(eval $SSH_COMMAND -- sudo docker ps -al --format {{.Status}})
               if [[ $CONTAINER_STATUS_LINE =~ Exited\ \((.*)\) ]]
