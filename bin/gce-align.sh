@@ -83,7 +83,10 @@ then
             if [[ $CONTAINER_STATUS_LINE =~ Exited\ \((.*)\) ]]
             then
               CONTAINER_IS_RUNNING=0
-              EXIT_STATUS=${BASH_REMATCH[1]}
+              if [[ ${BASH_REMATCH[1]} != 0 ]]
+              then
+                EXIT_STATUS=-1
+              fi
 
               echo "[$(date)] Fetching logs ..."
               eval $SSH_COMMAND -- sudo docker logs $CONTAINER_ID
@@ -120,7 +123,7 @@ then
           if [[ $FAILED_CONTAINER_POLL_COUNT == 5 ]]
           then
             echo "[$(date)] Machine stopped: "$MACHINE_NAME
-            EXIT_STATUS=-1
+            EXIT_STATUS=1
           fi
         fi
       fi
@@ -141,17 +144,3 @@ else
 fi
 
 exit $EXIT_STATUS
-
-
-
-
-
-
-
-
-
-
-
-
-
-
