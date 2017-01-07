@@ -88,5 +88,7 @@ else
   echo "sample_id is empty"
 fi
 
-gcloud compute instances delete $(hostname) --quiet
-
+for i in {1..5}
+do
+  gcloud compute instances delete $(hostname) --quiet && break || sleep $(( $i * 5 ))s
+done
