@@ -77,36 +77,50 @@ run()
 
 compute_node_id=$(hostname)
 
-while true
-do
-  next_sample=""
-  for i in {1..5}
+mysql topmed_remapping -e "INSERT INTO compute_nodes (id) VALUES ('${compute_node_id}') ON DUPLICATE KEY UPDATE id=id"
+
+if [[ $? == 0 ]]
+then
+  while true
   do
-    next_sample=$(mysql topmed_remapping -e "START TRANSACTION; UPDATE samples LEFT JOIN statuses ON samples.status_id=statues.id SET samples.compute_node_id='${compute_node_id}', samples.status_id=(SELECT id FROM statuses WHERE name='running-pre-align') WHERE statuses.name='running-pre-align' AND samples.compute_node_id IS NULL ORDER BY RAND() LIMIT 1; SELECT id FROM samples WHERE compute_node_id=${compute_node_id}; COMMIT;")
-    [[ $? == 0 ]] && break || sleep $(( $i * 5 ))s
-  done
-
-  if [[ -z $next_sample ]]
-  then
-    echo "sample is empty"
-    break
-  else
-    run_start_time=$(date +%s)
-    run $next_sample &> /home/alignment/run.log
-    run_status=$( [[ $? == 0 ]] && echo "pre-aligned" || echo "failed-pre-align" )
-    run_elapsed_seconds=$(( $(date +%s) - $run_start_time ))
-
-    mysql topmed_remapping -e "INSERT INTO job_executions (compute_node_id, sample_id, start_date, elapsed_seconds) VALUES ('${compute_node_id}', '${next_sample}', ${run_start_time}, ${run_elapsed_seconds})"
-
+    next_sample=""
     for i in {1..5}
     do
-      mysql topmed_remapping -e "UPDATE samples SET compute_node_id=NULL, status_id=(SELECT id FROM statuses WHERE name='${run_status}') WHERE id='${next_sample}'" && break || sleep $(( $i * 5 ))s
+      next_sample=$(mysql -N -B topmed_remapping -e "\
+        START TRANSACTION; \
+        SET @unprocessed_status_id = (SELECT id FROM statuses WHERE name='unprocessed'); \
+        SET @running_pre_align_status_id = (SELECT id FROM statuses WHERE name='running-pre-align'); \
+        UPDATE samples \
+        SET compute_node_id='${compute_node_id}', status_id=@running_pre_align_status_id \
+        WHERE status_id=@unprocessed_status_id AND compute_node_id IS NULL \
+        ORDER BY RAND() LIMIT 1; \
+        SELECT id FROM samples WHERE compute_node_id='${compute_node_id}' AND status_id=@running_pre_align_status_id ORDER BY last_updated DESC LIMIT 1; \
+        COMMIT;")
+      [[ $? == 0 ]] && break || sleep $(( $i * 5 ))s
     done
 
-    gzip /home/alignment/run.log
-    gsutil -q cp /home/alignment/run.log.gz gs://topmed-logs/${sample_id}/pre_align_${run_start_time}.log.gz
-  fi
-done
+    if [[ -z $next_sample ]]
+    then
+      echo "sample is empty"
+      break
+    else
+      run_start_time=$(date +%s)
+      run $next_sample &> /home/alignment/run.log
+      run_status=$( [[ $? == 0 ]] && echo "pre-aligned" || echo "failed-pre-align" )
+      run_elapsed_seconds=$(( $(date +%s) - $run_start_time ))
+
+      mysql topmed_remapping -e "INSERT INTO job_executions (compute_node_id, sample_id, start_date, elapsed_seconds) VALUES ('${compute_node_id}', '${next_sample}', FROM_UNIXTIME(${run_start_time}), ${run_elapsed_seconds})"
+
+      for i in {1..5}
+      do
+        mysql topmed_remapping -e "UPDATE samples SET compute_node_id=NULL, status_id=(SELECT id FROM statuses WHERE name='${run_status}') WHERE id='${next_sample}'" && break || sleep $(( $i * 5 ))s
+      done
+
+      gzip /home/alignment/run.log
+      gsutil -q cp /home/alignment/run.log.gz gs://topmed-logs/${sample_id}/pre_align_${run_start_time}.log.gz
+    fi
+  done
+fi
 
 for i in {1..10}
 do
