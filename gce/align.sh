@@ -89,28 +89,63 @@ run()
   return $rc
 }
 
-if [[ $sample_id ]]
+compute_node_id=$(hostname)
+
+mysql topmed_remapping -e "INSERT INTO compute_nodes (id) VALUES ('${compute_node_id}') ON DUPLICATE KEY UPDATE id=id"
+
+if [[ $? == 0 ]]
 then
-  for i in {1..5}
+  
+  next_sample=$(mysql -NB topmed_remapping -e "SELECT samples.id FROM samples LEFT JOIN statuses ON samples.status_id=statuses.id WHERE samples.compute_node_id='${compute_node_id}' AND statuses.name='running-align' ORDER BY last_updated DESC LIMIT 1")
+
+  continue_running=1
+  while [[ $continue_running != 0 ]]
   do
-    mysql topmed_remapping -e "UPDATE samples SET status_id=(SELECT id FROM statuses WHERE name='running-align') WHERE id='${sample_id}'" && break || sleep $(( $i * 5 ))s
+    if [[ -z $next_sample ]]
+    then
+      for i in {1..5}
+      do
+        next_sample=$(mysql -NB topmed_remapping -e "\
+          START TRANSACTION; \
+          SET @pre_aligned_status_id = (SELECT id FROM statuses WHERE name='pre-aligned'); \
+          SET @running_align_status_id = (SELECT id FROM statuses WHERE name='running-align'); \
+          UPDATE samples \
+          SET compute_node_id='${compute_node_id}', status_id=@running_align_status_id \
+          WHERE status_id=@pre_aligned_status_id AND compute_node_id IS NULL \
+          ORDER BY RAND() LIMIT 1; \
+          SELECT id FROM samples WHERE compute_node_id='${compute_node_id}' AND status_id=@running_align_status_id ORDER BY last_updated DESC LIMIT 1; \
+          COMMIT;")
+        [[ $? == 0 ]] && break || sleep $(( $i * 5 ))s
+      done
+    fi
+
+    if [[ -z $next_sample ]]
+    then
+      echo "sample is empty"
+      break
+    else
+      run_start_time=$(date +%s)
+      run $next_sample &>> /home/alignment/run.log
+      run_status=$( [[ $? == 0 ]] && echo "aligned" || echo "failed-align" )
+      run_elapsed_seconds=$(( $(date +%s) - $run_start_time ))
+
+      mysql topmed_remapping -e "INSERT INTO job_executions (compute_node_id, sample_id, start_date, elapsed_seconds) VALUES ('${compute_node_id}', '${next_sample}', FROM_UNIXTIME(${run_start_time}), ${run_elapsed_seconds})"
+
+      for i in {1..5}
+      do
+        mysql topmed_remapping -e "UPDATE samples SET compute_node_id=NULL, status_id=(SELECT id FROM statuses WHERE name='${run_status}') WHERE id='${next_sample}'" && break || sleep $(( $i * 5 ))s
+      done
+
+      gzip /home/alignment/run.log
+      gsutil -q cp /home/alignment/run.log.gz gs://topmed-logs/${sample_id}/align_${run_start_time}.log.gz
+    fi
+
+    next_sample=""
+    continue_running=$(mysql -NB topmed_remapping -e "SELECT enabled FROM compute_nodes WHERE id='${compute_node_id}'")
   done
-
-  run &>> /home/alignment/run.log
-  run_status=$( [[ $? == 0 ]] && echo "aligned" || echo "failed-align" )
-
-  for i in {1..5}
-  do
-    mysql topmed_remapping -e "UPDATE samples SET status_id=(SELECT id FROM statuses WHERE name='${run_status}') WHERE id='${sample_id}'" && break || sleep $(( $i * 5 ))s
-  done
-
-  gzip /home/alignment/run.log
-  gsutil -q cp /home/alignment/run.log.gz gs://topmed-logs/${sample_id}/align_$(date +%s).log.gz
-else
-  echo "sample_id is empty"
 fi
 
-for i in {1..5}
+for i in {1..10}
 do
   gcloud compute instances delete $(hostname) --quiet && break || sleep $(( $i * 5 ))s
 done
