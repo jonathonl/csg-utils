@@ -13,10 +13,10 @@ run()
   echo "[$(date)] Parsing todo"
   start_time=$(date +%s)
   
-  gsutil ls gs://topmed-crams/${sample_id}/*.cram.ok | xargs -I % basename % .cram.ok > /home/alignment/${sample_id}.completed-list
-  gsutil -q cp gs://topmed-fastqs/${sample_id}/${sample_id}.list /home/alignment/${sample_id}.list \
-  && grep -v -f /home/alignment/${sample_id}.completed-list /home/alignment/${sample_id}.list > /home/alignment/${sample_id}.todo-list \
-  && todo_count=$(( $(cat /home/alignment/${sample_id}.todo-list | wc -l) - 1 ))
+  gsutil ls gs://topmed-crams/${sample_id}/*.cram.ok | xargs -I % basename % .cram.ok > /home/alignment/completed_list.txt
+  gsutil -q cp gs://topmed-fastqs/${sample_id}/${sample_id}.list /home/alignment/full_list.txt \
+  && grep -v -f /home/alignment/completed_list.txt /home/alignment/full_list.txt > /home/alignment/todo_list.txt \
+  && todo_count=$(( $(cat /home/alignment/todo_list.txt | wc -l) - 1 ))
   rc=$?
   echo "[$(date)] Parsing todo exit status: ${rc}"
   echo "[$(date)] Parsing todo elapsed time: "$(( $(date +%s) - $start_time ))"s"
@@ -76,7 +76,7 @@ run()
       fi
 
       [[ $rc != 0 ]] && break
-    done <<< "$(tail -n +2 /home/alignment/${sample_id}.todo-list)"
+    done <<< "$(tail -n +2 /home/alignment/todo_list.txt)"
   fi
 
   [[ $rc != 0 ]] && return $rc
