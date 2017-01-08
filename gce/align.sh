@@ -3,10 +3,11 @@ set -uo pipefail
 
 export HOME=/root
 
-sample_id=$(curl "http://metadata.google.internal/computeMetadata/v1/instance/attributes/sample-id" -H "Metadata-Flavor: Google" --silent)
+#sample_id=$(curl "http://metadata.google.internal/computeMetadata/v1/instance/attributes/sample-id" -H "Metadata-Flavor: Google" --silent)
 
 run()
 {
+  sample_id=$1
   [[ -z $sample_id ]] && echo "sample_id is empty" && return -1
 
   echo "[$(date)] Parsing todo"
