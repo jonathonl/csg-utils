@@ -3,10 +3,11 @@ set -uo pipefail
 
 export HOME=/root
 
-sample_id=$(curl "http://metadata.google.internal/computeMetadata/v1/instance/attributes/sample-id" -H "Metadata-Flavor: Google" --silent)
+#sample_id=$(curl "http://metadata.google.internal/computeMetadata/v1/instance/attributes/sample-id" -H "Metadata-Flavor: Google" --silent)
 
 run()
 {
+  sample_id=$1
   [[ -z $sample_id ]] && echo "sample_id is empty" && return -1
 
   input_uri=$(gsutil ls gs://topmed-incoming/**/${sample_id}.src.cram) #$(curl "http://metadata.google.internal/computeMetadata/v1/instance/attributes/input-uri" -H "Metadata-Flavor: Google" --silent)
@@ -74,28 +75,40 @@ run()
   return $rc
 }
 
-if [[ $sample_id ]]
-then
+compute_node_id=$(hostname)
+
+while true
+do
+  next_sample=""
   for i in {1..5}
   do
-    mysql topmed_remapping -e "UPDATE samples SET status_id=(SELECT id FROM statuses WHERE name='running-pre-align') WHERE id='${sample_id}'" && break || sleep $(( $i * 5 ))s
+    next_sample=$(mysql topmed_remapping -e "START TRANSACTION; UPDATE samples LEFT JOIN statuses ON samples.status_id=statues.id SET samples.compute_node_id='${compute_node_id}', samples.status_id=(SELECT id FROM statuses WHERE name='running-pre-align') WHERE statuses.name='running-pre-align' AND samples.compute_node_id IS NULL ORDER BY RAND() LIMIT 1; SELECT id FROM samples WHERE compute_node_id=${compute_node_id}; COMMIT;")
+    [[ $? == 0 ]] && break || sleep $(( $i * 5 ))s
   done
 
-  run &> /home/alignment/run.log
-  run_status=$( [[ $? == 0 ]] && echo "pre-aligned" || echo "failed-pre-align" )
+  if [[ -z $next_sample ]]
+  then
+    echo "sample is empty"
+    break
+  else
+    run_start_time=$(date +%s)
+    run $next_sample &> /home/alignment/run.log
+    run_status=$( [[ $? == 0 ]] && echo "pre-aligned" || echo "failed-pre-align" )
+    run_elapsed_seconds=$(( $(date +%s) - $run_start_time ))
 
-  for i in {1..5}
-  do
-    mysql topmed_remapping -e "UPDATE samples SET status_id=(SELECT id FROM statuses WHERE name='${run_status}') WHERE id='${sample_id}'" && break || sleep $(( $i * 5 ))s
-  done
+    mysql topmed_remapping -e "INSERT INTO job_executions (compute_node_id, sample_id, start_date, elapsed_seconds) VALUES ('${compute_node_id}', '${next_sample}', ${run_start_time}, ${run_elapsed_seconds})"
 
-  gzip /home/alignment/run.log
-  gsutil -q cp /home/alignment/run.log.gz gs://topmed-logs/${sample_id}/pre_align_$(date +%s).log.gz
-else
-  echo "sample_id is empty"
-fi
+    for i in {1..5}
+    do
+      mysql topmed_remapping -e "UPDATE samples SET compute_node_id=NULL, status_id=(SELECT id FROM statuses WHERE name='${run_status}') WHERE id='${next_sample}'" && break || sleep $(( $i * 5 ))s
+    done
 
-for i in {1..5}
+    gzip /home/alignment/run.log
+    gsutil -q cp /home/alignment/run.log.gz gs://topmed-logs/${sample_id}/pre_align_${run_start_time}.log.gz
+  fi
+done
+
+for i in {1..10}
 do
   gcloud compute instances delete $(hostname) --quiet && break || sleep $(( $i * 5 ))s
 done
