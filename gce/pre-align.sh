@@ -81,12 +81,13 @@ mysql topmed_remapping -e "INSERT INTO compute_nodes (id) VALUES ('${compute_nod
 
 if [[ $? == 0 ]]
 then
-  while true
+  continue_running=1
+  while [[ $continue_running != 0 ]]
   do
     next_sample=""
     for i in {1..5}
     do
-      next_sample=$(mysql -N -B topmed_remapping -e "\
+      next_sample=$(mysql -NB topmed_remapping -e "\
         START TRANSACTION; \
         SET @unprocessed_status_id = (SELECT id FROM statuses WHERE name='unprocessed'); \
         SET @running_pre_align_status_id = (SELECT id FROM statuses WHERE name='running-pre-align'); \
@@ -119,6 +120,8 @@ then
       gzip /home/alignment/run.log
       gsutil -q cp /home/alignment/run.log.gz gs://topmed-logs/${sample_id}/pre_align_${run_start_time}.log.gz
     fi
+
+    continue_running=$(mysql -NB topmed_remapping -e "SELECT enabled FROM compute_nodes WHERE id='${compute_node_id}'")
   done
 fi
 
