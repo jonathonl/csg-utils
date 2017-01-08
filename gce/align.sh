@@ -83,7 +83,7 @@ run()
 
 
   echo "[$(date)] Deleting input fastq files"
-  echo "gsutil rm gs://topmed-fastqs/${sample_id}/*"
+  gsutil rm gs://topmed-fastqs/${sample_id}/*
   rc=$?
   echo "[$(date)] Delete exit status: ${rc}"
 
