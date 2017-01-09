@@ -10,8 +10,6 @@ run()
   sample_id=$1
   [[ -z $sample_id ]] && echo "sample_id is empty" && return -1
 
-  rm -f /home/alignment/*.{list,cram,bam,fastq.gz}
-
   input_uri=$(gsutil ls gs://topmed-incoming/**/${sample_id}.src.cram) #$(curl "http://metadata.google.internal/computeMetadata/v1/instance/attributes/input-uri" -H "Metadata-Flavor: Google" --silent)
 
   [[ $? != 0 || -z $input_uri ]] && echo "input_uri is empty" && return -1
@@ -107,6 +105,7 @@ then
       echo "sample is empty"
       break
     else
+      find /home/alignment -maxdepth 1 -type f | xargs rm
       run_start_time=$(date +%s)
       run $next_sample &> /home/alignment/run.log
       run_status=$( [[ $? == 0 ]] && echo "pre-aligned" || echo "failed-pre-align" )
