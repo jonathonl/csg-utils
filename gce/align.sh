@@ -125,7 +125,7 @@ then
       echo "sample is empty"
       break
     else
-      find /home/alignment -maxdepth 1 -type f | xargs rm
+      find /home/alignment -maxdepth 1 -type f | xargs rm -f
       run_start_time=$(date +%s)
       run $next_sample &>> /home/alignment/run.log
       run_status=$( [[ $? == 0 ]] && echo "aligned" || echo "failed-align" )
