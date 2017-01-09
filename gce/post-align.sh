@@ -7,7 +7,7 @@ export HOME=/root
 
 run()
 {
-  sample_id=$1
+  local sample_id=$1
   [[ -z $sample_id ]] && echo "sample_id is empty" && return -1
 
   echo "[$(date)] Downloading input cram files"
@@ -112,7 +112,7 @@ then
       done
 
       gzip /home/alignment/run.log
-      gsutil -q cp /home/alignment/run.log.gz gs://topmed-logs/${sample_id}/post_align_${run_start_time}.log.gz
+      gsutil -q cp /home/alignment/run.log.gz gs://topmed-logs/${next_sample}/post_align_${run_start_time}.log.gz
     fi
 
     continue_running=$(mysql -NB topmed_remapping -e "SELECT enabled FROM compute_nodes WHERE id='${compute_node_id}'")

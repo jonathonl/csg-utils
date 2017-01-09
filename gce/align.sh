@@ -7,7 +7,7 @@ export HOME=/root
 
 run()
 {
-  sample_id=$1
+  local sample_id=$1
   [[ -z $sample_id ]] && echo "sample_id is empty" && return -1
 
   echo "[$(date)] Parsing todo"
@@ -139,7 +139,7 @@ then
       done
 
       gzip /home/alignment/run.log
-      gsutil -q cp /home/alignment/run.log.gz gs://topmed-logs/${sample_id}/align_${run_start_time}.log.gz
+      gsutil -q cp /home/alignment/run.log.gz gs://topmed-logs/${next_sample}/align_${run_start_time}.log.gz
     fi
 
     next_sample=""

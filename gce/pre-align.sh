@@ -7,7 +7,7 @@ export HOME=/root
 
 run()
 {
-  sample_id=$1
+  local sample_id=$1
   [[ -z $sample_id ]] && echo "sample_id is empty" && return -1
 
   input_uri=$(gsutil ls gs://topmed-incoming/**/${sample_id}.src.cram) #$(curl "http://metadata.google.internal/computeMetadata/v1/instance/attributes/input-uri" -H "Metadata-Flavor: Google" --silent)
@@ -119,7 +119,7 @@ then
       done
 
       gzip /home/alignment/run.log
-      gsutil -q cp /home/alignment/run.log.gz gs://topmed-logs/${sample_id}/pre_align_${run_start_time}.log.gz
+      gsutil -q cp /home/alignment/run.log.gz gs://topmed-logs/${next_sample}/pre_align_${run_start_time}.log.gz
     fi
 
     continue_running=$(mysql -NB topmed_remapping -e "SELECT enabled FROM compute_nodes WHERE id='${compute_node_id}'")
