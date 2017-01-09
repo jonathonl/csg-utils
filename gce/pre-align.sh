@@ -68,7 +68,7 @@ run()
   [[ $rc != 0 ]] && return $rc
 
   echo "[$(date)] Deleting input cram file (${input_uri})"
-  gsutil rm $input_uri
+  gsutil rm $input_uri && rm ${local_output_base}*
   rc=$?
   echo "[$(date)] Delete exit status: ${rc}"
 
