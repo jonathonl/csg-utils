@@ -10,6 +10,8 @@ run()
   sample_id=$1
   [[ -z $sample_id ]] && echo "sample_id is empty" && return -1
 
+  rm -f /home/alignment/*.{list,cram,bam,fastq.gz}
+
   input_uri=$(gsutil ls gs://topmed-incoming/**/${sample_id}.src.cram) #$(curl "http://metadata.google.internal/computeMetadata/v1/instance/attributes/input-uri" -H "Metadata-Flavor: Google" --silent)
 
   [[ $? != 0 || -z $input_uri ]] && echo "input_uri is empty" && return -1
@@ -68,7 +70,7 @@ run()
   [[ $rc != 0 ]] && return $rc
 
   echo "[$(date)] Deleting input cram file (${input_uri})"
-  gsutil rm $input_uri && rm ${local_output_base}*
+  gsutil rm $input_uri
   rc=$?
   echo "[$(date)] Delete exit status: ${rc}"
 
