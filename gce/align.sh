@@ -65,14 +65,35 @@ run()
 
         if [[ $rc == 0 ]]
         then
-          output_uri="gs://topmed-crams/${sample_id}/"$(basename $input_file_name .fastq.gz)".cram"
-          echo "[$(date)] Uploading ouput cram (${output_uri})"
+          echo "[$(date)] Starting validation"
           start_time=$(date +%s)
+          fastq_reads=$(( $(zcat /home/alignment/input.fastq.gz | wc -l) / 4 ))
+          samtools flagstat /home/alignment/output.cram > /home/alignment/output.cram.flagstat
+          cram_reads=$(grep 'paired in sequencing' /home/alignment/output.cram.flagstat | awk '{print $1}')
+          
+          echo '[$(date)] Cram read count: '$cram_reads
+          echo '[$(date)] Fastq read count: '$fastq_reads
 
-          gsutil -q cp /home/alignment/output.cram $output_uri && gsutil -q cp /home/alignment/output.cram.ok $output_uri".ok"
-          rc=$?
-          echo "[$(date)] Upload exit status: ${rc}"
-          echo "[$(date)] Upload elapsed time: "$(( $(date +%s) - $start_time ))"s"
+          if [[ $fastq_reads != $cram_reads || $cram_reads == 0 ]] 
+          then 
+            echo "[$(date)] Failed flagstat validation."
+            rc=-1
+          fi
+          echo "[$(date)] Validation exit status: ${rc}"
+          echo "[$(date)] Validation elapsed time: "$(( $(date +%s) - $start_time ))"s"
+
+
+          if [[ $rc == 0 ]]
+          then
+            output_uri="gs://topmed-crams/${sample_id}/"$(basename $input_file_name .fastq.gz)".cram"
+            echo "[$(date)] Uploading ouput cram (${output_uri})"
+            start_time=$(date +%s)
+
+            gsutil -q cp /home/alignment/output.cram $output_uri && gsutil -q cp /home/alignment/output.cram.ok $output_uri".ok"
+            rc=$?
+            echo "[$(date)] Upload exit status: ${rc}"
+            echo "[$(date)] Upload elapsed time: "$(( $(date +%s) - $start_time ))"s"
+          fi
         fi
       fi
 

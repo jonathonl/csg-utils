@@ -44,12 +44,12 @@ run()
 
   [[ $rc != 0 ]] && return $rc
 
-  fastq_reads=$(( $(zcat /home/alignment/*.fastq.gz | wc -l) / 4 ));
-  samtools flagstat $local_input_file > /home/alignment/cram_flagstat.txt;
-  cram_reads=$(grep 'paired in sequencing' /home/alignment/cram_flagstat.txt | awk '{print $1}');
+  fastq_reads=$(( $(zcat /home/alignment/*.fastq.gz | wc -l) / 4 ))
+  samtools flagstat $local_input_file > /home/alignment/cram_flagstat.txt
+  cram_reads=$(grep 'paired in sequencing' /home/alignment/cram_flagstat.txt | awk '{print $1}')
   
-  echo '[$(date)] Cram read count: '$cram_reads;
-  echo '[$(date)] Fastq read count: '$fastq_reads;
+  echo '[$(date)] Cram read count: '$cram_reads
+  echo '[$(date)] Fastq read count: '$fastq_reads
 
   if [[ $fastq_reads != $cram_reads || $cram_reads == 0 ]] 
   then 

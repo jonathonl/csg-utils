@@ -22,12 +22,16 @@ run()
   echo "[$(date)] Starting pipeline"
   start_time=$(date +%s)
 
+  input_crams_read_count=0
   for input_file in /home/alignment/*.cram 
   do 
-    samtools sort --reference /home/alignment/ref/hs38DH.fa --threads 1 -T /home/alignment/tmp -o ${input_file%.cram}.sorted.bam $input_file
+    samtools flagstat $input_file > ${input_file}.flagstat
+    input_crams_read_count=$(( $input_crams_read_count + $(grep 'paired in sequencing' ${input_file}.flagstat | awk '{print $1}') ))
+    tmp_prefix=${input_file%.cram}.tmp
+    samtools sort --reference /home/alignment/ref/hs38DH.fa --threads 1 -T $tmp_prefix -o ${input_file%.cram}.sorted.bam $input_file
     rc=$?
     [[ $rc != 0 ]] && break
-    rm $input_file
+    rm -f $input_file ${input_file}.flagstat ${tmp_prefix}*
   done
 
   if [[ $rc == 0 ]]
@@ -40,8 +44,15 @@ run()
     
     if [[ $rc == 0 ]]
     then
-      samtools flagstat /home/alignment/output.cram > /home/alignment/output.flagstat
-      rc=$?
+      samtools flagstat /home/alignment/output.cram > /home/alignment/output.cram.flagstat
+      
+      output_cram_read_count=$(grep 'paired in sequencing' /home/alignment/output.cram.flagstat | awk '{print $1}')
+
+      if [[ $input_crams_read_count != $output_cram_read_count || $output_cram_read_count == 0 ]] 
+      then 
+        echo "[$(date)] Failed flagstat validation."
+        rc=-1
+      fi
     fi
   fi
   echo "[$(date)] Pipeline exit status: ${rc}"
@@ -53,7 +64,7 @@ run()
   echo "[$(date)] Uploading ouput cram (${output_uri})"
   start_time=$(date +%s)
   
-  gsutil -q cp /home/alignment/output.cram $output_uri && gsutil -q cp /home/alignment/output.flagstat $output_uri".flagstat"
+  gsutil -q cp /home/alignment/output.cram $output_uri && gsutil -q cp /home/alignment/output.cram.flagstat $output_uri".flagstat"
   rc=$?
   echo "[$(date)] Upload exit status: ${rc}"
   echo "[$(date)] Upload elapsed time: "$(( $(date +%s) - $start_time ))"s"
