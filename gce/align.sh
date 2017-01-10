@@ -43,7 +43,7 @@ run()
       input_uri=gs://topmed-fastqs/${sample_id}/$input_file_name
 
       #gce-align.sh 1 $sample_id $rg_counter "$line_rg" gs://topmed-crams/${sample_id} $input_files
-      echo "[$(date)] Downloading input cram (${input_uri})"
+      echo "[$(date)] Downloading input fastq (${input_uri})"
       start_time=$(date +%s)
       gsutil -q cp $input_uri /home/alignment/input.fastq.gz
       rc=$?
@@ -86,7 +86,7 @@ run()
           if [[ $rc == 0 ]]
           then
             output_uri="gs://topmed-crams/${sample_id}/"$(basename $input_file_name .fastq.gz)".cram"
-            echo "[$(date)] Uploading ouput cram (${output_uri})"
+            echo "[$(date)] Uploading output cram (${output_uri})"
             start_time=$(date +%s)
 
             gsutil -q cp /home/alignment/output.cram $output_uri && gsutil -q cp /home/alignment/output.cram.ok $output_uri".ok"

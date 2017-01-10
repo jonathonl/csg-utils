@@ -25,6 +25,7 @@ run()
   input_crams_read_count=0
   for input_file in /home/alignment/*.cram 
   do 
+    echo "[$(date)] Sorting ${input_file} ..."
     samtools flagstat $input_file > ${input_file}.flagstat
     input_crams_read_count=$(( $input_crams_read_count + $(grep 'paired in sequencing' ${input_file}.flagstat | awk '{print $1}') ))
     tmp_prefix=${input_file%.cram}.tmp
@@ -36,6 +37,7 @@ run()
 
   if [[ $rc == 0 ]]
   then 
+    echo "[$(date)] Merging ..."
     samtools merge --threads 1 /home/alignment/merged.bam /home/alignment/*.sorted.bam \
     && rm /home/alignment/*.sorted.bam \
     && bam-non-primary-dedup dedup_LowMem --allReadNames --binCustom --binQualS 0:2,3:3,4:4,5:5,6:6,7:10,13:20,23:30 --log /home/alignment/dedup_lowmem.metrics --recab --in /home/alignment/merged.bam --out -.ubam --refFile /home/alignment/ref/hs38DH.fa --dbsnp /home/alignment/dbsnp/Homo_sapiens_assembly38.dbsnp138.vcf.gz \
