@@ -13,6 +13,7 @@ run()
   echo "[$(date)] Parsing todo"
   start_time=$(date +%s)
   
+  rm -f /home/alignment/full_list.txt /home/alignment/completed_list.txt /home/alignment/todo_list.txt
   gsutil ls gs://topmed-crams/${sample_id}/*.cram.ok | xargs -I % basename % .cram.ok > /home/alignment/completed_list.txt
   gsutil -q cp gs://topmed-fastqs/${sample_id}/${sample_id}.list /home/alignment/full_list.txt \
   && grep -v -f /home/alignment/completed_list.txt /home/alignment/full_list.txt > /home/alignment/todo_list.txt \
@@ -118,6 +119,9 @@ then
           COMMIT;")
         [[ $? == 0 ]] && break || sleep $(( $i * 5 ))s
       done
+
+      # Just grabbed new sample, so start new log.
+      find /home/alignment -maxdepth 1 -type f | xargs rm -f
     fi
 
     if [[ -z $next_sample ]]
@@ -125,7 +129,6 @@ then
       echo "sample is empty"
       break
     else
-      find /home/alignment -maxdepth 1 -type f | xargs rm -f
       run_start_time=$(date +%s)
       run $next_sample &>> /home/alignment/run.log
       run_status=$( [[ $? == 0 ]] && echo "aligned" || echo "failed-align" )
@@ -138,7 +141,7 @@ then
         mysql topmed_remapping -e "UPDATE samples SET compute_node_id=NULL, status_id=(SELECT id FROM statuses WHERE name='${run_status}') WHERE id='${next_sample}'" && break || sleep $(( $i * 5 ))s
       done
 
-      gzip /home/alignment/run.log
+      gzip < /home/alignment/run.log > /home/alignment/run.log.gz
       gsutil -q cp /home/alignment/run.log.gz gs://topmed-logs/${next_sample}/align_${run_start_time}.log.gz
     fi
 

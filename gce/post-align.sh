@@ -111,7 +111,7 @@ then
         mysql topmed_remapping -e "UPDATE samples SET compute_node_id=NULL, status_id=(SELECT id FROM statuses WHERE name='${run_status}') WHERE id='${next_sample}'" && break || sleep $(( $i * 5 ))s
       done
 
-      gzip /home/alignment/run.log
+      gzip < /home/alignment/run.log > /home/alignment/run.log.gz
       gsutil -q cp /home/alignment/run.log.gz gs://topmed-logs/${next_sample}/post_align_${run_start_time}.log.gz
     fi
 
