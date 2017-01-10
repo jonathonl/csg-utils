@@ -48,6 +48,9 @@ run()
       
       output_cram_read_count=$(grep 'paired in sequencing' /home/alignment/output.cram.flagstat | awk '{print $1}')
 
+      echo '[$(date)] Input read count: '$input_crams_read_count
+      echo '[$(date)] Output read count: '$output_cram_read_count
+
       if [[ $input_crams_read_count != $output_cram_read_count || $output_cram_read_count == 0 ]] 
       then 
         echo "[$(date)] Failed flagstat validation."
