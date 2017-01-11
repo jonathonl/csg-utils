@@ -75,7 +75,19 @@ run()
   return $rc
 }
 
-compute_node_id=$(hostname)
+# There's a bug in gcloud where /etc/hostname doesn't get updated correctly.
+compute_node_id=""
+for i in {1..5}
+do
+  compute_node_id=$(curl "http://metadata.google.internal/computeMetadata/v1/instance/hostname" -H "Metadata-Flavor: Google" --silent | cut -f 1 -d ".")
+  [[ -z $compute_node_id ]] && sleep $(( $i * 5 ))s || break
+done
+
+if [[ -z $compute_node_id ]]
+then
+  echo "empty compute_node_id"
+  exit -1
+fi
 
 mysql topmed_remapping -e "INSERT INTO compute_nodes (id) VALUES ('${compute_node_id}') ON DUPLICATE KEY UPDATE id=id"
 
@@ -128,5 +140,5 @@ fi
 
 for i in {1..10}
 do
-  gcloud compute instances delete $(hostname) --quiet && break || sleep $(( $i * 5 ))s
+  gcloud compute instances delete $compute_node_id --quiet && break || sleep $(( $i * 5 ))s
 done
