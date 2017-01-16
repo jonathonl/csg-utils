@@ -128,7 +128,7 @@ fi
 
 continue_running=1
 
-mysql topmed_remapping -e "INSERT INTO compute_nodes (id) VALUES ('${compute_node_id}') ON DUPLICATE KEY UPDATE id=id"
+mysql topmed_remapping -e "INSERT INTO compute_nodes (id) VALUES ('${compute_node_id}') ON DUPLICATE KEY UPDATE enabled=IF(enabled != 0, 1, 0)"
 
 if [[ $? == 0 ]]
 then
