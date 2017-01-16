@@ -126,15 +126,15 @@ then
   exit -1
 fi
 
+continue_running=1
+
 mysql topmed_remapping -e "INSERT INTO compute_nodes (id) VALUES ('${compute_node_id}') ON DUPLICATE KEY UPDATE id=id"
 
 if [[ $? == 0 ]]
 then
-  
   next_sample=$(mysql -NB topmed_remapping -e "SELECT samples.id FROM samples LEFT JOIN statuses ON samples.status_id=statuses.id WHERE samples.compute_node_id='${compute_node_id}' AND statuses.name='running-align' ORDER BY last_updated DESC LIMIT 1")
 
-  continue_running=1
-  while [[ $continue_running != 0 ]]
+  while [[ $continue_running == 1 ]]
   do
     if [[ -z $next_sample ]]
     then
@@ -183,7 +183,12 @@ then
   done
 fi
 
-for i in {1..10}
-do
-  gcloud compute instances delete $compute_node_id --quiet && break || sleep $(( $i * 5 ))s
-done
+if [[ $continue_running == 2 ]]
+then
+  reboot
+else
+  for i in {1..10}
+  do
+    gcloud compute instances delete $compute_node_id --quiet && break || sleep $(( $i * 5 ))s
+  done
+fi

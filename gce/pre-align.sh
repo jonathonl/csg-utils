@@ -89,28 +89,33 @@ then
   exit -1
 fi
 
+continue_running=1
+
 mysql topmed_remapping -e "INSERT INTO compute_nodes (id) VALUES ('${compute_node_id}') ON DUPLICATE KEY UPDATE id=id"
 
 if [[ $? == 0 ]]
 then
-  continue_running=1
-  while [[ $continue_running != 0 ]]
+  next_sample=$(mysql -NB topmed_remapping -e "SELECT samples.id FROM samples LEFT JOIN statuses ON samples.status_id=statuses.id WHERE samples.compute_node_id='${compute_node_id}' AND statuses.name='running-pre-align' ORDER BY last_updated DESC LIMIT 1")
+
+  while [[ $continue_running == 1 ]]
   do
-    next_sample=""
-    for i in {1..5}
-    do
-      next_sample=$(mysql -NB topmed_remapping -e "\
-        START TRANSACTION; \
-        SET @unprocessed_status_id = (SELECT id FROM statuses WHERE name='unprocessed'); \
-        SET @running_pre_align_status_id = (SELECT id FROM statuses WHERE name='running-pre-align'); \
-        UPDATE samples \
-        SET compute_node_id='${compute_node_id}', status_id=@running_pre_align_status_id \
-        WHERE status_id=@unprocessed_status_id AND compute_node_id IS NULL \
-        ORDER BY RAND() LIMIT 1; \
-        SELECT id FROM samples WHERE compute_node_id='${compute_node_id}' AND status_id=@running_pre_align_status_id ORDER BY last_updated DESC LIMIT 1; \
-        COMMIT;")
-      [[ $? == 0 ]] && break || sleep $(( $i * 5 ))s
-    done
+    if [[ -z $next_sample ]]
+    then
+      for i in {1..5}
+      do
+        next_sample=$(mysql -NB topmed_remapping -e "\
+          START TRANSACTION; \
+          SET @unprocessed_status_id = (SELECT id FROM statuses WHERE name='unprocessed'); \
+          SET @running_pre_align_status_id = (SELECT id FROM statuses WHERE name='running-pre-align'); \
+          UPDATE samples \
+          SET compute_node_id='${compute_node_id}', status_id=@running_pre_align_status_id \
+          WHERE status_id=@unprocessed_status_id AND compute_node_id IS NULL \
+          ORDER BY RAND() LIMIT 1; \
+          SELECT id FROM samples WHERE compute_node_id='${compute_node_id}' AND status_id=@running_pre_align_status_id ORDER BY last_updated DESC LIMIT 1; \
+          COMMIT;")
+        [[ $? == 0 ]] && break || sleep $(( $i * 5 ))s
+      done
+    fi
 
     if [[ -z $next_sample ]]
     then
@@ -134,11 +139,17 @@ then
       gsutil -q cp /home/alignment/run.log.gz gs://topmed-logs/${next_sample}/pre_align_${run_start_time}.log.gz
     fi
 
+    next_sample=""
     continue_running=$(mysql -NB topmed_remapping -e "SELECT enabled FROM compute_nodes WHERE id='${compute_node_id}'")
   done
 fi
 
-for i in {1..10}
-do
-  gcloud compute instances delete $compute_node_id --quiet && break || sleep $(( $i * 5 ))s
-done
+if [[ $continue_running == 2 ]]
+then
+  reboot
+else
+  for i in {1..10}
+  do
+    gcloud compute instances delete $compute_node_id --quiet && break || sleep $(( $i * 5 ))s
+  done
+fi
