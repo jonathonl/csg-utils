@@ -147,7 +147,7 @@ then
           UPDATE samples \
           SET compute_node_id='${compute_node_id}', status_id=@running_align_status_id \
           WHERE status_id=@pre_aligned_status_id AND compute_node_id IS NULL \
-          ORDER BY RAND() LIMIT 1; \
+          ORDER BY last_updated ASC LIMIT 1; \
           SELECT id FROM samples WHERE compute_node_id='${compute_node_id}' AND status_id=@running_align_status_id ORDER BY last_updated DESC LIMIT 1; \
           COMMIT;")
         [[ $? == 0 ]] && break || sleep $(( $i * 5 ))s

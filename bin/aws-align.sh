@@ -10,7 +10,6 @@ set -o pipefail
 MACHINE_NAME="align-"$(head -c16 /dev/urandom | xxd -p | tr -d \\n)
 MACHINE_TAG=$(basename $1 .fastq.gz | tr "[:upper:]" "[:lower:]" | sed "s/[^a-z0-9]/-/g" | head -c62)
 
-
 docker-machine create --driver amazonec2 --amazonec2-tags $MACHINE_TAG --amazonec2-ami ami-cc0579db --amazonec2-instance-type c4.8xlarge --amazonec2-root-size 300 --amazonec2-request-spot-instance --amazonec2-spot-price 0.50 $MACHINE_NAME
 
 EXIT_STATUS=$?
