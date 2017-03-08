@@ -34,7 +34,7 @@ run()
   export REF_CACHE=/home/alignment/ref/md5/%2s/%2s/%s &&
   samtools view -uh -F 0x900 $local_input_file \
     | bam-ext-mem-sort-manager squeeze --in -.ubam --keepDups --rmTags AS:i,BD:Z,BI:Z,XS:i,MC:Z,MD:Z,NM:i,MQ:i --out -.ubam \
-    | samtools sort -l 1 -@ 1 -m 2000M -n -T /home/alignment/${sample_id}.samtools_sort_tmp - \
+    | samtools sort -l 1 -@ 1 -n -T /home/alignment/${sample_id}.samtools_sort_tmp - \
     | samtools fixmate - - \
     | bam-ext-mem-sort-manager bam2fastq --in -.bam --outBase $local_output_base --maxRecordLimitPerFq 20000000 --sortByReadNameOnTheFly --readname --gzip
   
