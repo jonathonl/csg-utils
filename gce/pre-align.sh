@@ -3,7 +3,7 @@ set -uo pipefail
 
 export HOME=/root
 
-#sample_id=$(curl "http://metadata.google.internal/computeMetadata/v1/instance/attributes/sample-id" -H "Metadata-Flavor: Google" --silent)
+ulimit -n 8192
 
 run()
 {
