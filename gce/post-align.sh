@@ -38,7 +38,7 @@ run()
   if [[ $rc == 0 ]]
   then 
     echo "[$(date)] Merging ..."
-    samtools merge --threads 1 /home/alignment/merged.bam /home/alignment/*.sorted.bam \
+    samtools merge --threads 1 -c /home/alignment/merged.bam /home/alignment/*.sorted.bam \
     && rm /home/alignment/*.sorted.bam \
     && bam-non-primary-dedup dedup_LowMem --allReadNames --binCustom --binQualS 0:2,3:3,4:4,5:5,6:6,7:10,13:20,23:30 --log /home/alignment/dedup_lowmem.metrics --recab --in /home/alignment/merged.bam --out -.ubam --refFile /home/alignment/ref/hs38DH.fa --dbsnp /home/alignment/dbsnp/Homo_sapiens_assembly38.dbsnp138.vcf.gz \
       | samtools view -h -C -T /home/alignment/ref/hs38DH.fa -o /home/alignment/output.cram --threads 1
@@ -46,7 +46,7 @@ run()
     
     if [[ $rc == 0 ]]
     then
-      unique_sample_count=$(samtools view -H /home/alignment/output.cram | grep -o "\sSM:NWD[0-9]*" | sort | uniq | wc -l)
+      unique_sample_count=$(samtools view -H /home/alignment/output.cram | grep -o "\sSM:[^[:space:]]*" | sort | uniq | wc -l)
       if [[ $unique_sample_count != 1 ]]
       then
         echo "[$(date)] Multiple samples found in output (${unique_sample_count})."
