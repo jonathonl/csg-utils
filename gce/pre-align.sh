@@ -14,8 +14,13 @@ run()
 
   [[ $? != 0 || -z $input_uri ]] && echo "input_uri is empty" && return -1
 
+  echo "[$(date)] Deleting files from any previous attempts"
+  gsutil rm gs://topmed-fastqs/${sample_id}/*
+  gsutil rm gs://topmed-crams/${sample_id}/*
+  gsutil rm gs://topmed-recabs/${sample_id}/*
+  
   ouput_uri=gs://topmed-fastqs/${sample_id}/ # !!! Trailing slash important.
-
+  
   local_input_file="/home/alignment/"$(basename $input_uri)
   local_output_base="/home/alignment/"$(basename $input_uri | cut -f 1 -d '.')
 
