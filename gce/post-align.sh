@@ -46,8 +46,14 @@ run()
     
     if [[ $rc == 0 ]]
     then
-      samtools flagstat /home/alignment/output.cram > /home/alignment/output.cram.flagstat
+      unique_sample_count=$(samtools view -H /home/alignment/output.cram | grep -o "\sSM:NWD[0-9]*" | sort | uniq | wc -l)
+      if [[ $unique_sample_count != 1 ]]
+      then
+        echo "[$(date)] Multiple samples found in output (${unique_sample_count})."
+        rc=-1
+      fi
       
+      samtools flagstat /home/alignment/output.cram > /home/alignment/output.cram.flagstat
       output_cram_read_count=$(grep 'paired in sequencing' /home/alignment/output.cram.flagstat | awk '{print $1}')
 
       echo "[$(date)] Input read count: ${input_crams_read_count}"
