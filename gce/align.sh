@@ -55,8 +55,14 @@ run()
         echo "[$(date)] Starting pipeline"
         start_time=$(date +%s)
 
+        paired_flag=""
+        if [[ $input_file_name =~ interleaved\.fastq\.gz$ ]]
+        then
+          paired_flag="-p"
+        fi
+
         rm -f /home/alignment/output.cram /home/alignment/output.cram.ok \
-        && bwa mem -t 32 -K 100000000 -Y -p -R "$line_rg" /home/alignment/ref/hs38DH.fa /home/alignment/input.fastq.gz | samblaster -a --addMateTags | samtools view -@ 32 -T /home/alignment/ref/hs38DH.fa -C -o /home/alignment/output.cram - \
+        && bwa mem -t 32 -K 100000000 -Y ${paired_flag} -R "$line_rg" /home/alignment/ref/hs38DH.fa /home/alignment/input.fastq.gz | samblaster -a --addMateTags | samtools view -@ 32 -T /home/alignment/ref/hs38DH.fa -C -o /home/alignment/output.cram - \
         && touch /home/alignment/output.cram.ok
 
         rc=$?
@@ -69,7 +75,7 @@ run()
           start_time=$(date +%s)
           fastq_reads=$(( $(zcat /home/alignment/input.fastq.gz | wc -l) / 4 ))
           samtools flagstat /home/alignment/output.cram > /home/alignment/output.cram.flagstat
-          cram_reads=$(grep 'paired in sequencing' /home/alignment/output.cram.flagstat | awk '{print $1}')
+          cram_reads=$(( $(grep 'in total' /home/alignment/output.cram.flagstat | awk '{print $1}') - $(grep 'secondary' /home/alignment/output.cram.flagstat | awk '{print $1}') - $(grep 'supplementary' /home/alignment/output.cram.flagstat | awk '{print $1}') )) #cram_reads=$(grep 'paired in sequencing' /home/alignment/output.cram.flagstat | awk '{print $1}')
           
           echo "[$(date)] Cram read count: ${cram_reads}"
           echo "[$(date)] Fastq read count: ${fastq_reads}"
@@ -86,13 +92,19 @@ run()
           if [[ $rc == 0 ]]
           then
             output_uri="gs://topmed-crams/${sample_id}/"$(basename $input_file_name .fastq.gz)".cram"
-            echo "[$(date)] Uploading output cram (${output_uri})"
-            start_time=$(date +%s)
 
-            gsutil -q cp /home/alignment/output.cram $output_uri && gsutil -q cp /home/alignment/output.cram.ok $output_uri".ok"
-            rc=$?
-            echo "[$(date)] Upload exit status: ${rc}"
-            echo "[$(date)] Upload elapsed time: "$(( $(date +%s) - $start_time ))"s"
+            for i in {1..5}
+            do
+              echo "[$(date)] Uploading output cram (${output_uri})"
+              start_time=$(date +%s)
+
+              gsutil -q cp /home/alignment/output.cram $output_uri && gsutil -q cp /home/alignment/output.cram.ok $output_uri".ok"
+              rc=$?
+              echo "[$(date)] Upload exit status: ${rc}"
+              echo "[$(date)] Upload elapsed time: "$(( $(date +%s) - $start_time ))"s"
+
+              [[ $rc == 0 ]] && break || sleep $(( $i * 5 ))s
+            done
           fi
         fi
       fi

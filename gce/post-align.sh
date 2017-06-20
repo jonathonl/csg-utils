@@ -27,7 +27,8 @@ run()
   do 
     echo "[$(date)] Sorting ${input_file} ..."
     samtools flagstat $input_file > ${input_file}.flagstat
-    input_crams_read_count=$(( $input_crams_read_count + $(grep 'paired in sequencing' ${input_file}.flagstat | awk '{print $1}') ))
+    current_cram_read_count=$(( $(grep 'in total' ${input_file}.flagstat  | awk '{print $1}') - $(grep 'secondary' ${input_file}.flagstat | awk '{print $1}') - $(grep 'supplementary' ${input_file}.flagstat | awk '{print $1}') ))
+    input_crams_read_count=$(( $input_crams_read_count + $current_cram_read_count )) #$(( $input_crams_read_count + $(grep 'paired in sequencing' ${input_file}.flagstat | awk '{print $1}') ))
     tmp_prefix=${input_file%.cram}.tmp
     samtools sort --reference /home/alignment/ref/hs38DH.fa --threads 1 -T $tmp_prefix -o ${input_file%.cram}.sorted.bam $input_file
     rc=$?
@@ -54,7 +55,7 @@ run()
       fi
       
       samtools flagstat /home/alignment/output.cram > /home/alignment/output.cram.flagstat
-      output_cram_read_count=$(grep 'paired in sequencing' /home/alignment/output.cram.flagstat | awk '{print $1}')
+      output_cram_read_count=$(( $(grep 'in total' /home/alignment/output.cram.flagstat | awk '{print $1}') - $(grep 'secondary' /home/alignment/output.cram.flagstat | awk '{print $1}') - $(grep 'supplementary' /home/alignment/output.cram.flagstat | awk '{print $1}') ))  #$(grep 'paired in sequencing' /home/alignment/output.cram.flagstat | awk '{print $1}')
 
       echo "[$(date)] Input read count: ${input_crams_read_count}"
       echo "[$(date)] Output read count: ${output_cram_read_count}"
@@ -72,13 +73,19 @@ run()
   [[ $rc != 0 ]] && return $rc
 
   output_uri=gs://topmed-recabs/${sample_id}/${sample_id}.recab.cram
-  echo "[$(date)] Uploading ouput cram (${output_uri})"
-  start_time=$(date +%s)
-  
-  gsutil -q cp /home/alignment/output.cram $output_uri && gsutil -q cp /home/alignment/output.cram.flagstat $output_uri".flagstat"
-  rc=$?
-  echo "[$(date)] Upload exit status: ${rc}"
-  echo "[$(date)] Upload elapsed time: "$(( $(date +%s) - $start_time ))"s"
+
+  for i in {1..5}
+  do
+    echo "[$(date)] Uploading ouput cram (${output_uri})"
+    start_time=$(date +%s)
+    
+    gsutil -q cp /home/alignment/output.cram $output_uri && gsutil -q cp /home/alignment/output.cram.flagstat $output_uri".flagstat"
+    rc=$?
+    echo "[$(date)] Upload exit status: ${rc}"
+    echo "[$(date)] Upload elapsed time: "$(( $(date +%s) - $start_time ))"s"
+
+    [[ $rc == 0 ]] && break || sleep $(( $i * 15 ))s
+  done
 
   [[ $rc != 0 ]] && return $rc
 

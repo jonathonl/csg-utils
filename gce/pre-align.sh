@@ -51,7 +51,7 @@ run()
 
   fastq_reads=$(( $(zcat /home/alignment/*.fastq.gz | wc -l) / 4 ))
   samtools flagstat $local_input_file > /home/alignment/cram_flagstat.txt
-  cram_reads=$(grep 'paired in sequencing' /home/alignment/cram_flagstat.txt | awk '{print $1}')
+  cram_reads=$(( $(grep 'in total' /home/alignment/cram_flagstat.txt | awk '{print $1}') - $(grep 'secondary' /home/alignment/cram_flagstat.txt | awk '{print $1}') - $(grep 'supplementary' /home/alignment/cram_flagstat.txt | awk '{print $1}') ))   #$(grep 'paired in sequencing' /home/alignment/cram_flagstat.txt | awk '{print $1}')
   
   echo "[$(date)] Cram read count: ${cram_reads}"
   echo "[$(date)] Fastq read count: ${fastq_reads}"
@@ -62,13 +62,18 @@ run()
     return -1
   fi
 
-  echo "[$(date)] Uploading ouput fastq files"
-  start_time=$(date +%s)
-  
-  gsutil -q cp ${local_output_base}*.fastq.gz $ouput_uri && gsutil -q cp ${local_output_base}.list $ouput_uri
-  rc=$?
-  echo "[$(date)] Upload exit status: ${rc}"
-  echo "[$(date)] Upload elapsed time: "$(( $(date +%s) - $start_time ))"s"
+  for i in {1..5}
+  do
+    echo "[$(date)] Uploading ouput fastq files"
+    start_time=$(date +%s)
+    gsutil -q cp ${local_output_base}*.fastq.gz $ouput_uri && gsutil -q cp ${local_output_base}.list $ouput_uri
+    rc=$?
+
+    echo "[$(date)] Upload exit status: ${rc}"
+    echo "[$(date)] Upload elapsed time: "$(( $(date +%s) - $start_time ))"s"
+
+    [[ $rc == 0 ]] && break || sleep $(( $i * 15 ))s
+  done
 
   [[ $rc != 0 ]] && return $rc
 
