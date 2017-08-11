@@ -22,7 +22,7 @@ run()
   ouput_uri=gs://topmed-fastqs/${sample_id}/ # !!! Trailing slash important.
   
   local_input_file="/home/alignment/"$(basename $input_uri)
-  local_output_base="/home/alignment/"$(basename $input_uri | cut -f 1 -d '.')
+  local_output_base=/home/alignment/${sample_id}
 
 
   echo "[$(date)] Downloading input cram file (${input_uri})"
